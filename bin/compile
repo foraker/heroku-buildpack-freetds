@@ -1,31 +1,29 @@
-#!/usr/bin/env ruby
+#!/bin/bash
 
-# sync output
-$stdout.sync = true
+BUILD_DIR=$1
+CACHE_DIR=$2
+ARCHIVE_NAME="freetds-${FREETDS_VERSION:-1.00.84}"
 
-BUILD_DIR = ARGV[0]
-CACHE_DIR = ARGV[1]
-ARCHIVE_NAME = "freetds-0.91.112"
+echo "-----> Fetching & Extracting FreeTDS"
+mkdir -p ${CACHE_DIR}
+curl ftp://ftp.freetds.org/pub/freetds/stable/$ARCHIVE_NAME.tar.gz -o - | tar -xz -C $CACHE_DIR -f -
 
-  puts "-----> Fetching & Extracting FreeTDS"
-  puts `mkdir -p #{CACHE_DIR}`
-  puts `curl ftp://ftp.freetds.org/pub/freetds/stable/#{ARCHIVE_NAME}.tar.gz -o - | tar -xz -C #{CACHE_DIR} -f -`
+echo "-----> Configurating FreeTDS"
+mkdir -p $BUILD_DIR/vendor/freetds
+cd $CACHE_DIR/${ARCHIVE_NAME} && ./configure --prefix=${BUILD_DIR}/vendor/freetds
 
-  puts "-----> Configurating FreeTDS"
-  puts `mkdir -p #{BUILD_DIR}/vendor/freetds`
-  puts `cd #{CACHE_DIR}/#{ARCHIVE_NAME} && ./configure --prefix=#{BUILD_DIR}/vendor/freetds`
+echo "-----> Building FreeTDS"
+cd ${CACHE_DIR}/${ARCHIVE_NAME} && make
 
-  puts "-----> Building FreeTDS"
-  puts `cd #{CACHE_DIR}/#{ARCHIVE_NAME} && make`
+echo "-----> Installing FreeTDS into ${BUILD_DIR}/vendor/freetds"
+mkdir -p ${BUILD_DIR}/vendor/freetds
+cd ${CACHE_DIR}/${ARCHIVE_NAME} && make install
 
-puts "-----> Installing FreeTDS into #{BUILD_DIR}/vendor/freetds"
-puts `mkdir -p #{BUILD_DIR}/vendor/freetds`
-puts `cd #{CACHE_DIR}/#{ARCHIVE_NAME} && make install`
+echo "-----> Copying FreeTDS into $HOME/vendor/freetds"
+cp -r ${BUILD_DIR}/vendor/freetds $HOME/vendor/freetds
 
-puts "-----> Copying FreeTDS into /app/vendor/freetds"
-puts `cp -r #{BUILD_DIR}/vendor/freetds /app/vendor/freetds`
-
-puts "-----> Writing FreeTDS configuration for subsequent buildpack"
-File.open("export", "w") do |file|
-  file.write("export FREETDS_DIR=/app/vendor/freetds")
-end
+echo "-----> Updating environment variables"
+PROFILE_PATH="$BUILD_DIR/.profile.d/freetds.sh"
+ACTUAL_INSTALL_PATH="$HOME/vendor/freetds"
+mkdir -p $(dirname $PROFILE_PATH)
+echo "export FREETDS_DIR=$ACTUAL_INSTALL_PATH" >> $PROFILE_PATH
